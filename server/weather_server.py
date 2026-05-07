@@ -1,8 +1,17 @@
 from typing import Any
-
+from tavily import TavilyClient
 import httpx
 from mcp.server.fastmcp import FastMCP
 import requests
+import logging
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize FastMCP server
 mcp = FastMCP("weather")
@@ -10,6 +19,10 @@ mcp = FastMCP("weather")
 # Constants
 NWS_API_BASE = "https://api.weather.gov"
 USER_AGENT = "weather-app/1.0"
+
+tavily_client = TavilyClient(
+    api_key=os.getenv("TAVILY_API_KEY")
+)
 
 async def make_nws_request(url: str) -> dict[str, Any] | None:
     """Make a request to the NWS API with proper error handling."""
@@ -105,7 +118,7 @@ async def get_forecast(latitude: float, longitude: float) -> str:
     return "\n---\n".join(forecasts)
 
 @mcp.tool()
-async def google_search(query: str) -> str:
+async def google_search(query: str) -> dict:
     """
     Search the web for current information and general knowledge.
 
@@ -118,36 +131,34 @@ async def google_search(query: str) -> str:
     - factual lookups
     - public information
 
-    The query should be concise and search-engine friendly.
-
-    Good query examples:
-    - "latest AI developments"
-    - "US election news"
-    - "Iran America conflict reason"
-    - "weather California today"
-
-    Avoid using this tool for:
-    - mathematical calculations
-    - logic reasoning
-    - summarization of provided text
+    Use this tool whenever up-to-date internet
+    information is required.
     """
-    
-    url = "https://api.duckduckgo.com/"
-    params = {
-        "q": query,
-        "format": "json"
-    }
 
-    async with httpx.AsyncClient(
-        follow_redirects=True
-        ) as client:
-            response = await client.get(url, params=params)
-            data = response.json()
+    try:
 
-    if "AbstractText" in data and data["AbstractText"]:
-        return data["AbstractText"]
+        response = tavily_client.search(
+            query=query,
+            search_depth="advanced",
+            max_results=5
+        )
 
-    return "No good results found"
+        logger.info(f"Tavily Search Data: {response}")
+
+        return {
+            "status": "success",
+            "query": query,
+            "results": response.get("results", [])
+        }
+
+    except Exception as e:
+
+        logger.error(f"Tavily Search Error: {e}")
+
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 @mcp.tool()
 async def geocode_location(location: str) -> dict:
