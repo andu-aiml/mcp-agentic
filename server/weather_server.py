@@ -6,6 +6,8 @@ import requests
 import logging
 import os
 from dotenv import load_dotenv
+import asyncio
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 load_dotenv()
 
@@ -14,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastMCP server
-mcp = FastMCP("weather")
+mcp = FastMCP("my-server")
 
 # Constants
 NWS_API_BASE = "https://api.weather.gov"
@@ -117,6 +119,18 @@ async def get_forecast(latitude: float, longitude: float) -> str:
 
     return "\n---\n".join(forecasts)
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10)
+)
+def tavily_search_sync(query):
+
+    return tavily_client.search(
+        query=query,
+        search_depth="basic",
+        max_results=3
+    )
+
 @mcp.tool()
 async def google_search(query: str) -> dict:
     """
@@ -137,17 +151,13 @@ async def google_search(query: str) -> dict:
 
     try:
 
-        response = tavily_client.search(
-            query=query,
-            search_depth="advanced",
-            max_results=5
+        response = await asyncio.to_thread(
+            tavily_search_sync,
+            query
         )
-
-        logger.info(f"Tavily Search Data: {response}")
 
         return {
             "status": "success",
-            "query": query,
             "results": response.get("results", [])
         }
 
@@ -159,7 +169,7 @@ async def google_search(query: str) -> dict:
             "status": "error",
             "message": str(e)
         }
-
+    
 @mcp.tool()
 async def geocode_location(location: str) -> dict:
     """
