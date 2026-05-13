@@ -1,4 +1,5 @@
 env/
 test.py
 __pycache__/
-memory_server/.env/
+memory_server/.env/.env
+**/.env
