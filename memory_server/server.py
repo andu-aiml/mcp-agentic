@@ -4,7 +4,7 @@ from mcp.server.fastmcp import FastMCP
 
 from sqlalchemy import select
 
-from db import AsyncSessionLocal
+from db import SessionLocal
 from db import init_db
 
 from models import Memory
@@ -18,23 +18,17 @@ mcp = FastMCP("memory-server")
 
 
 @mcp.tool()
-async def save_memory(
+def save_memory(
     user_id: str,
     memory: str
 ) -> dict:
     """
     Save a memory into PostgreSQL.
-
-    Use this when:
-    - user asks to remember something
-    - storing long-term information
-    - saving research notes
-    - storing preferences
     """
 
     try:
 
-        async with AsyncSessionLocal() as session:
+        with SessionLocal() as session:
 
             new_memory = Memory(
                 user_id=user_id,
@@ -43,8 +37,8 @@ async def save_memory(
 
             session.add(new_memory)
 
-            await session.commit()
-            await session.refresh(new_memory)
+            session.commit()
+            session.refresh(new_memory)
 
             logger.info(
                 f"Memory saved for user: {user_id}"
@@ -67,33 +61,29 @@ async def save_memory(
 
 
 @mcp.tool()
-async def get_memories(
+def get_memories(
     user_id: str
 ) -> dict:
     """
     Retrieve all memories for a user.
-
-    Use this when:
-    - recalling previous information
-    - retrieving saved notes
-    - restoring context
     """
 
     try:
 
-        async with AsyncSessionLocal() as session:
+        with SessionLocal() as session:
 
             query = select(Memory).where(
                 Memory.user_id == user_id
             )
 
-            result = await session.execute(query)
+            result = session.execute(query)
 
             memories = result.scalars().all()
 
             formatted_memories = []
 
             for memory in memories:
+
                 formatted_memories.append({
                     "id": memory.id,
                     "memory": memory.memory,
@@ -117,35 +107,31 @@ async def get_memories(
 
 
 @mcp.tool()
-async def search_memories(
+def search_memories(
     user_id: str,
     query_text: str
 ) -> dict:
     """
     Search memories using keyword matching.
-
-    Use this when:
-    - finding related memories
-    - contextual recall
-    - searching historical data
     """
 
     try:
 
-        async with AsyncSessionLocal() as session:
+        with SessionLocal() as session:
 
             query = select(Memory).where(
                 Memory.user_id == user_id,
                 Memory.memory.ilike(f"%{query_text}%")
             )
 
-            result = await session.execute(query)
+            result = session.execute(query)
 
             memories = result.scalars().all()
 
             formatted_memories = []
 
             for memory in memories:
+
                 formatted_memories.append({
                     "id": memory.id,
                     "memory": memory.memory,
@@ -169,33 +155,35 @@ async def search_memories(
 
 
 @mcp.tool()
-async def delete_memory(
+def delete_memory(
     memory_id: int
 ) -> dict:
     """
-    Delete a memory by ID.
+    Delete memory by ID.
     """
 
     try:
 
-        async with AsyncSessionLocal() as session:
+        with SessionLocal() as session:
 
             query = select(Memory).where(
                 Memory.id == memory_id
             )
 
-            result = await session.execute(query)
+            result = session.execute(query)
 
             memory = result.scalar_one_or_none()
 
             if not memory:
+
                 return {
                     "status": "error",
                     "message": "Memory not found"
                 }
 
-            await session.delete(memory)
-            await session.commit()
+            session.delete(memory)
+
+            session.commit()
 
             return {
                 "status": "success",
@@ -214,11 +202,9 @@ async def delete_memory(
 
 if __name__ == "__main__":
 
-    import asyncio
-
     logger.info("Initializing database...")
 
-    asyncio.run(init_db())
+    init_db()
 
     logger.info("Starting Memory MCP Server...")
 

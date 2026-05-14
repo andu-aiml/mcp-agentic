@@ -7,6 +7,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from agent import create_llm, bind_tools
 from tools import load_mcp_tools
 from dotenv import load_dotenv
+from langchain_core.messages import SystemMessage
 
 load_dotenv()
 
@@ -29,8 +30,35 @@ async def build_graph():
     # Assistant node
     async def assistant(state: State):
 
+        system_prompt = SystemMessage(
+            content="""
+            You are an AI assistant with memory capabilities.
+
+            IMPORTANT RULES:
+
+            1. When the user shares personal information such as:
+            - name
+            - preferences
+            - goals
+            - background
+            - projects
+            - interests
+
+            Use the save_memory tool.
+
+            2. When the user asks about previous information or memory:
+            - "What is my name?"
+            - "What do you know about me?"
+            - "What project am I working on?"
+
+            Use the get_memories tool.
+
+            3. Be proactive in using tools whenever memory is useful.
+            """
+            )
+
         response = await llm_with_tools.ainvoke(
-            state["messages"]
+            [system_prompt] + state["messages"]
         )
 
         return {

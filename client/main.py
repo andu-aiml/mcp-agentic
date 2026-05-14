@@ -12,6 +12,8 @@ async def main():
     print("Agent Started!")
     print("Type 'exit' to quit.\n")
 
+    messages = []
+
     while True:
 
         user_input = input("You: ")
@@ -19,11 +21,14 @@ async def main():
         if user_input.lower() == "exit":
             break
 
+        # Add user message
+        messages.append(
+            HumanMessage(content=user_input)
+        )
+
         response = await graph.ainvoke(
             {
-                "messages": [
-                    HumanMessage(content=user_input)
-                ]
+                "messages": messages
             }
         )
 

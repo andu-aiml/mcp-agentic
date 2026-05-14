@@ -8,9 +8,18 @@ async def load_mcp_tools():
 
     client = MultiServerMCPClient(
         {
-            "my-server": {
+            
+            # Weather/Search MCP Server
+            "weather-server": {
                 "command": "python",
                 "args": ["server/weather_server.py"],
+                "transport": "stdio",
+            },
+
+            # Memory MCP Server
+            "memory-server": {
+                "command": "python",
+                "args": ["memory_server/server.py"],
                 "transport": "stdio",
             }
         }

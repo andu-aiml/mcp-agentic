@@ -1,34 +1,37 @@
 import os
 
+from pathlib import Path
 from dotenv import load_dotenv
 
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from models import Base
 
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL not found")
 
-engine = create_async_engine(
+
+# IMPORTANT
+DATABASE_URL = DATABASE_URL.replace(
+    "+asyncpg",
+    ""
+)
+
+engine = create_engine(
     DATABASE_URL,
-    echo=True
+    echo=False
+)
+
+SessionLocal = sessionmaker(
+    bind=engine
 )
 
 
-AsyncSessionLocal = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
-
-
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(
-            Base.metadata.create_all
-        )
+def init_db():
+    Base.metadata.create_all(bind=engine)
